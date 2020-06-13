@@ -10,7 +10,7 @@ var proxyAgent = require('proxy-agent');
 
 const app = connect();
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+//process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 const toList = (apps) => ({
   results: apps
