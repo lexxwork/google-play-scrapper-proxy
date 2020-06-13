@@ -28,7 +28,7 @@ const cleanUrls = (req) => (app) => Object.assign({}, app, {
   }
 });
 
-const protocol = 'http'
+const protocol = 'https'
 const buildUrl = (req, subpath) => req.protocol || protocol + '://' + path.posix.join(req.headers['host'], subpath);
 
 const gplayConstants = Object.keys(gplay).filter(k => typeof gplay[k] === 'object')
@@ -239,9 +239,9 @@ app.use(connectRoute(function (router) {
 
 }));
 
-//const server = https.createServer(app)
+const PORT = process.env.PORT || 8080;
 
-app.listen(3000)
+app.listen(PORT)
 
-console.log('server started at http://locahost:3000');
+console.log('server started at http://locahost:' + PORT);
 
