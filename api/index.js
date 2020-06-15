@@ -6,7 +6,7 @@ const {
 const gplay = require('google-play-scraper');
 const path = require('path');
 const qs = require('querystring');
-//var proxyAgent = require('proxy-agent');
+var proxyAgent = require('proxy-agent');
 
 const toList = (apps) => ({
   results: apps
@@ -30,15 +30,31 @@ function errorHandler(error, res) {
   });
 }
 
+function applyProxy(req) {
+  if (req.query.proxy && req.query.proxy.length > 0) {
+    req.query.requestOptions = {
+      agent: new proxyAgent(req.query.proxy),
+      timeout: 10000
+    }
+    delete req.query.proxy
+  }
+}
+
 module.exports = router(
-  get('/', (req, res) =>
+
+  //get('/*', (req, res) => applyProxy(req)),
+
+  get('/', (req, res) => {
+    applyProxy(req);
     res.json({
       apps: buildUrl(req, 'apps'),
       developers: buildUrl(req, 'developers')
-    })),
+    })
+  }),
 
   /* App search */
   get('/apps/', function (req, res) {
+    applyProxy(req);
     if (req.query.q) {
       const opts = Object.assign({
         term: req.query.q
@@ -48,7 +64,7 @@ module.exports = router(
         //.then((apps) => apps.map(cleanUrls(req)))
         .then(toList)
         .then(res.json)
-        .catch(errorHandler);
+        .catch(err => errorHandler(err, res));
     }
     /* Search suggest */
     else if (req.query.suggest) {
@@ -58,7 +74,7 @@ module.exports = router(
         .then((terms) => terms.map(toJSON))
         .then(toList)
         .then(res.json)
-        .catch(errorHandler);
+        .catch(err => errorHandler(err, res));
     }
     /* App list */
     else {
@@ -83,23 +99,25 @@ module.exports = router(
         //.then((apps) => apps.map(cleanUrls(req)))
         .then(toList).then(paginate)
         .then(res.json)
-        .catch(errorHandler);
+        .catch(err => errorHandler(err, res));
     }
   }),
 
   /* App detail*/
   get('/apps/:appId', function (req, res) {
+    applyProxy(req);
     const opts = Object.assign({
       appId: req.params.appId
     }, req.query);
     gplay.app(opts)
       //.then(cleanUrls(req))
       .then(res.json)
-      .catch(errorHandler);
+      .catch(err => errorHandler(err, res));
   }),
 
   /* Similar apps */
   get('/apps/:appId/similar', function (req, res) {
+    applyProxy(req);
     const opts = Object.assign({
       appId: req.params.appId
     }, req.query);
@@ -107,22 +125,24 @@ module.exports = router(
       //.then((apps) => apps.map(cleanUrls(req)))
       .then(toList)
       .then(res.json)
-      .catch(errorHandler);
+      .catch(err => errorHandler(err, res));
   }),
 
   /* App permissions */
   get('/apps/:appId/permissions', function (req, res) {
+    applyProxy(req);
     const opts = Object.assign({
       appId: req.params.appId
     }, req.query);
     gplay.permissions(opts)
       .then(toList)
       .then(res.json)
-      .catch(errorHandler);
+      .catch(err => errorHandler(err, res));
   }),
 
   /* App reviews */
-  get('/apps/:appId/reviews', function (req, res) {
+  get('/apps/:appId/reviews', async function (req, res) {
+    applyProxy(req);
     function paginate(apps) {
       const page = parseInt(req.query.page || '0');
 
@@ -147,11 +167,12 @@ module.exports = router(
       .then(toList)
       .then(paginate)
       .then(res.json)
-      .catch(errorHandler);
+      .catch(err => errorHandler(err, res));
   }),
 
   /* Apps by developer */
   get('/developers/:devId/', function (req, res) {
+    applyProxy(req);
     const opts = Object.assign({
       devId: req.params.devId
     }, req.query);
@@ -163,18 +184,19 @@ module.exports = router(
         apps
       }))
       .then(res.json)
-      .catch(errorHandler);
+      .catch(err => errorHandler(err, res));
   }),
 
   /* Developer list (not supported) */
-  get('/developers/', (req, res) =>
+  get('/developers/', (req, res) => {
     res.json({
       message: 'Please specify a developer id.',
       example: buildUrl(req, '/developers/' + qs.escape('DxCo Games'))
-    })),
+    })
+  }),
 
   /* gplay categories */
-  get('/categories/', (req, res) =>
+  get('/categories/', (req, res) => {
     gplay.categories().then(res.json)
-  )
+  })
 );
