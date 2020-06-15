@@ -6,22 +6,10 @@ const {
 const gplay = require('google-play-scraper');
 const path = require('path');
 const qs = require('querystring');
-var proxyAgent = require('proxy-agent');
+//var proxyAgent = require('proxy-agent');
 
 const toList = (apps) => ({
   results: apps
-});
-
-const cleanUrls = (req) => (app) => Object.assign({}, app, {
-  playstoreUrl: app.url,
-  url: buildUrl(req, 'apps/' + app.appId),
-  permissions: buildUrl(req, 'apps/' + app.appId + '/permissions'),
-  similar: buildUrl(req, 'apps/' + app.appId + '/similar'),
-  reviews: buildUrl(req, 'apps/' + app.appId + '/reviews'),
-  developer: {
-    devId: app.developer,
-    url: buildUrl(req, 'developers/' + qs.escape(app.developer))
-  }
 });
 
 const protocol = 'https'
@@ -36,6 +24,11 @@ function queryObjToGplayConstants(queryObj) {
   return queryObj
 }
 
+function errorHandler(error, res) {
+  res.json({
+    error
+  });
+}
 
 module.exports = router(
   get('/', (req, res) =>
@@ -45,106 +38,91 @@ module.exports = router(
     })),
 
   /* App search */
-  get('/apps/', function (req, res, next) {
-    if (!req.query.q) {
-      return next();
+  get('/apps/', function (req, res) {
+    if (req.query.q) {
+      const opts = Object.assign({
+        term: req.query.q
+      }, req.query);
+
+      gplay.search(opts)
+        //.then((apps) => apps.map(cleanUrls(req)))
+        .then(toList)
+        .then(res.json)
+        .catch(errorHandler);
     }
-
-    const opts = Object.assign({
-      term: req.query.q
-    }, req.query);
-
-    gplay.search(opts)
-      //.then((apps) => apps.map(cleanUrls(req)))
-      .then(toList)
-      .then(res.json.bind(res))
-      .catch(next);
-  }),
-
-  /* Search suggest */
-  get('/apps/', function (req, res, next) {
-    if (!req.query.suggest) {
-      return next();
+    /* Search suggest */
+    else if (req.query.suggest) {
+      gplay.suggest({
+          term: req.query.suggest
+        })
+        .then((terms) => terms.map(toJSON))
+        .then(toList)
+        .then(res.json)
+        .catch(errorHandler);
     }
+    /* App list */
+    else {
+      function paginate(apps) {
+        const num = parseInt(req.query.num || '60');
+        const start = parseInt(req.query.start || '0');
 
-    const toJSON = (term) => ({
-      term,
-      url: buildUrl(req, '/apps/') + '?' + qs.stringify({
-        q: term
-      })
-    });
+        if (start - num >= 0) {
+          req.query.start = start - num;
+          apps.prev = buildUrl(req, '/apps/') + '?' + qs.stringify(req.query);
+        }
 
-    gplay.suggest({
-        term: req.query.suggest
-      })
-      .then((terms) => terms.map(toJSON))
-      .then(toList)
-      .then(res.json.bind(res))
-      .catch(next);
-  }),
+        if (start + num <= 500) {
+          req.query.start = start + num;
+          apps.next = buildUrl(req, '/apps/') + '?' + qs.stringify(req.query);
+        }
 
-  /* App list */
-  get('/apps/', function (req, res, next) {
-    function paginate(apps) {
-      const num = parseInt(req.query.num || '60');
-      const start = parseInt(req.query.start || '0');
-
-      if (start - num >= 0) {
-        req.query.start = start - num;
-        apps.prev = buildUrl(req, '/apps/') + '?' + qs.stringify(req.query);
+        return apps;
       }
-
-      if (start + num <= 500) {
-        req.query.start = start + num;
-        apps.next = buildUrl(req, '/apps/') + '?' + qs.stringify(req.query);
-      }
-
-      return apps;
+      const query = queryObjToGplayConstants(req.query)
+      gplay.list(query)
+        //.then((apps) => apps.map(cleanUrls(req)))
+        .then(toList).then(paginate)
+        .then(res.json)
+        .catch(errorHandler);
     }
-    const query = queryObjToGplayConstants(req.query)
-    gplay.list(query)
-      //.then((apps) => apps.map(cleanUrls(req)))
-      .then(toList).then(paginate)
-      .then(res.json.bind(res))
-      .catch(next);
   }),
 
   /* App detail*/
-  get('/apps/:appId', function (req, res, next) {
+  get('/apps/:appId', function (req, res) {
     const opts = Object.assign({
       appId: req.params.appId
     }, req.query);
     gplay.app(opts)
       //.then(cleanUrls(req))
-      .then(res.json.bind(res))
-      .catch(next);
+      .then(res.json)
+      .catch(errorHandler);
   }),
 
   /* Similar apps */
-  get('/apps/:appId/similar', function (req, res, next) {
+  get('/apps/:appId/similar', function (req, res) {
     const opts = Object.assign({
       appId: req.params.appId
     }, req.query);
     gplay.similar(opts)
       //.then((apps) => apps.map(cleanUrls(req)))
       .then(toList)
-      .then(res.json.bind(res))
-      .catch(next);
+      .then(res.json)
+      .catch(errorHandler);
   }),
 
   /* App permissions */
-  get('/apps/:appId/permissions', function (req, res, next) {
+  get('/apps/:appId/permissions', function (req, res) {
     const opts = Object.assign({
       appId: req.params.appId
     }, req.query);
     gplay.permissions(opts)
       .then(toList)
-      .then(res.json.bind(res))
-      .catch(next);
+      .then(res.json)
+      .catch(errorHandler);
   }),
 
   /* App reviews */
-  get('/apps/:appId/reviews', function (req, res, next) {
+  get('/apps/:appId/reviews', function (req, res) {
     function paginate(apps) {
       const page = parseInt(req.query.page || '0');
 
@@ -168,12 +146,12 @@ module.exports = router(
     gplay.reviews(opts)
       .then(toList)
       .then(paginate)
-      .then(res.json.bind(res))
-      .catch(next);
+      .then(res.json)
+      .catch(errorHandler);
   }),
 
   /* Apps by developer */
-  get('/developers/:devId/', function (req, res, next) {
+  get('/developers/:devId/', function (req, res) {
     const opts = Object.assign({
       devId: req.params.devId
     }, req.query);
@@ -184,8 +162,8 @@ module.exports = router(
         devId: req.params.devId,
         apps
       }))
-      .then(res.json.bind(res))
-      .catch(next);
+      .then(res.json)
+      .catch(errorHandler);
   }),
 
   /* Developer list (not supported) */
