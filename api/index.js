@@ -34,7 +34,7 @@ function applyProxy(req) {
   if (req.query.proxy && req.query.proxy.length > 0) {
     req.query.requestOptions = {
       agent: new proxyAgent(req.query.proxy),
-      timeout: 10000
+      timeout: 9000
     }
     delete req.query.proxy
   }
