@@ -25,7 +25,7 @@ function queryObjToGplayConstants(queryObj) {
 }
 
 function errorHandler(error, res) {
-  res.end(JSON.stringify(error));
+  res.end(JSON.stringify({error}));
 }
 
 function applyProxy(req) {
