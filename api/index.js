@@ -139,7 +139,7 @@ module.exports = router(
   }),
 
   /* App reviews */
-  get('/apps/:appId/reviews', async function (req, res) {
+  get('/apps/:appId/reviews', function (req, res) {
     applyProxy(req);
 
     function paginate(apps) {
