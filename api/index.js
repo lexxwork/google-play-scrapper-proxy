@@ -25,9 +25,7 @@ function queryObjToGplayConstants(queryObj) {
 }
 
 function errorHandler(error, res) {
-  res.json({
-    error
-  });
+  res.end(JSON.stringify(error));
 }
 
 function applyProxy(req) {
@@ -143,6 +141,7 @@ module.exports = router(
   /* App reviews */
   get('/apps/:appId/reviews', async function (req, res) {
     applyProxy(req);
+
     function paginate(apps) {
       const page = parseInt(req.query.page || '0');
 
